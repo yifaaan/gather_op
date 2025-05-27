@@ -23,4 +23,9 @@ std::vector<float> TestGatherCHW(bool is_rvv, std::vector<int> in_shape,
                                  const char *input_path,
                                  const char *indices_path,
                                  const char *output_path, int axis);
+
+float TestGatherHWC(bool is_rvv, std::vector<int> in_shape,
+                    std::vector<int> indices_shape, const char *input_path,
+                    const char *indices_path, const char *output_path,
+                    int axis);
 #endif

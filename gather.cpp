@@ -6,11 +6,11 @@
 #include <vector>
 
 namespace {
-static int gather_hwc_batch_rvv(std::vector<float>& output,
-                                const std::vector<float>& input,
-                                const std::vector<int>& in_shape_nhwc,
-                                const std::vector<int>& indices, int axis_nchw,
-                                int align_channels) {
+int gather_hwc_batch_rvv(std::vector<float> &output,
+                         const std::vector<float> &input,
+                         const std::vector<int> &in_shape_nhwc,
+                         const std::vector<int> &indices, int axis_nchw,
+                         int align_channels) {
   // 检查NCHW格式的axis是否有效
   if (axis_nchw > 3) {
     std::cerr << "无效的axis_nchw：" << axis_nchw << std::endl;
@@ -31,7 +31,7 @@ static int gather_hwc_batch_rvv(std::vector<float>& output,
     axis_nhwc = 3;
   } else if (axis_nchw == 2) {
     axis_nhwc = 1;
-  } else {  // axis_nchw == 3
+  } else { // axis_nchw == 3
     axis_nhwc = 2;
   }
 
@@ -188,10 +188,10 @@ static int gather_hwc_batch_rvv(std::vector<float>& output,
 
 // NDHWC <-> NCDHW : RVV gather 5-D
 int gather_hwc_batch5d_rvv(
-    std::vector<float>& output, const std::vector<float>& input,
-    const std::vector<int>& in_shape_ndhwc,  // {N,D,H,W,C}
-    const std::vector<int>& indices,
-    int axis_ncdhw,  // 以 NCDHW 编号
+    std::vector<float> &output, const std::vector<float> &input,
+    const std::vector<int> &in_shape_ndhwc, // {N,D,H,W,C}
+    const std::vector<int> &indices,
+    int axis_ncdhw, // 以 NCDHW 编号
     int align_channels) {
   if (axis_ncdhw > 4) {
     std::cerr << "无效 axis_ncdhw\n";
@@ -204,26 +204,6 @@ int gather_hwc_batch5d_rvv(
   const int H = in_shape_ndhwc[2];
   const int W = in_shape_ndhwc[3];
   const int C = in_shape_ndhwc[4];
-
-  /* ---------- 轴映射 NCDHW → NDHWC ---------- */
-  int axis_ndhwc;
-  switch (axis_ncdhw) {
-    case 0:
-      axis_ndhwc = 0;
-      break;  // N
-    case 1:
-      axis_ndhwc = 4;
-      break;  // C
-    case 2:
-      axis_ndhwc = 1;
-      break;  // D
-    case 3:
-      axis_ndhwc = 2;
-      break;  // H
-    default:
-      axis_ndhwc = 3;
-      break;  // W
-  }
 
   const int num_c_blocks = (C + align_channels - 1) / align_channels;
 
@@ -408,10 +388,10 @@ int gather_hwc_batch5d_rvv(
   return 0;
 }
 
-int gather_hwc_batch_mem(std::vector<float>& output,
-                         const std::vector<float>& input,
-                         const std::vector<std::size_t>& in_shape_nhwc,
-                         const std::vector<std::size_t>& indices,
+int gather_hwc_batch_mem(std::vector<float> &output,
+                         const std::vector<float> &input,
+                         const std::vector<std::size_t> &in_shape_nhwc,
+                         const std::vector<std::size_t> &indices,
                          std::size_t axis_nchw, std::size_t align_channels) {
   // 检查NCHW格式的axis是否有效
   if (axis_nchw > 3) {
@@ -433,7 +413,7 @@ int gather_hwc_batch_mem(std::vector<float>& output,
     axis_nhwc = 3;
   } else if (axis_nchw == 2) {
     axis_nhwc = 1;
-  } else {  // axis_nchw == 3
+  } else { // axis_nchw == 3
     axis_nhwc = 2;
   }
 
@@ -566,10 +546,10 @@ int gather_hwc_batch_mem(std::vector<float>& output,
   return 0;
 }
 
-int gather_hwc_batch5d_mem(std::vector<float>& output,
-                           const std::vector<float>& input,
-                           const std::vector<std::size_t>& in_shape_lnhwc,
-                           const std::vector<std::size_t>& indices,
+int gather_hwc_batch5d_mem(std::vector<float> &output,
+                           const std::vector<float> &input,
+                           const std::vector<std::size_t> &in_shape_lnhwc,
+                           const std::vector<std::size_t> &indices,
                            std::size_t axis_lnchw, std::size_t align_channels) {
   // 检查LNCHW格式的axis是否有效
   if (axis_lnchw > 4) {
@@ -578,24 +558,24 @@ int gather_hwc_batch5d_mem(std::vector<float>& output,
   }
 
   // 从LNHWC形状提取维度
-  std::size_t L = in_shape_lnhwc[0];  // LNHWC的第一个维度是L
-  std::size_t N = in_shape_lnhwc[1];  // LNHWC的第二个维度是N
-  std::size_t H = in_shape_lnhwc[2];  // LNHWC的第三个维度是H
-  std::size_t W = in_shape_lnhwc[3];  // LNHWC的第四个维度是W
-  std::size_t C = in_shape_lnhwc[4];  // LNHWC的第五个维度是C
+  std::size_t L = in_shape_lnhwc[0]; // LNHWC的第一个维度是L
+  std::size_t N = in_shape_lnhwc[1]; // LNHWC的第二个维度是N
+  std::size_t H = in_shape_lnhwc[2]; // LNHWC的第三个维度是H
+  std::size_t W = in_shape_lnhwc[3]; // LNHWC的第四个维度是W
+  std::size_t C = in_shape_lnhwc[4]; // LNHWC的第五个维度是C
 
   // 将LNCHW格式的axis转换为LNHWC格式的axis
   std::size_t axis_lnhwc;
   if (axis_lnchw == 0) {
-    axis_lnhwc = 0;  // LNCHW的L维度对应LNHWC的第一个维度
+    axis_lnhwc = 0; // LNCHW的L维度对应LNHWC的第一个维度
   } else if (axis_lnchw == 1) {
-    axis_lnhwc = 1;  // LNCHW的N维度对应LNHWC的第二个维度
+    axis_lnhwc = 1; // LNCHW的N维度对应LNHWC的第二个维度
   } else if (axis_lnchw == 2) {
-    axis_lnhwc = 4;  // LNCHW的C维度对应LNHWC的最后一个维度
+    axis_lnhwc = 4; // LNCHW的C维度对应LNHWC的最后一个维度
   } else if (axis_lnchw == 3) {
-    axis_lnhwc = 2;  // LNCHW的H维度对应LNHWC的第三个维度
-  } else {           // axis_lnchw == 4
-    axis_lnhwc = 3;  // LNCHW的W维度对应LNHWC的第四个维度
+    axis_lnhwc = 2; // LNCHW的H维度对应LNHWC的第三个维度
+  } else {          // axis_lnchw == 4
+    axis_lnhwc = 3; // LNCHW的W维度对应LNHWC的第四个维度
   }
 
   // 计算通道块数
@@ -781,12 +761,12 @@ int gather_hwc_batch5d_mem(std::vector<float>& output,
 
   return 0;
 }
-}  // namespace
+} // namespace
 
 namespace rvv {
-int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
-               const std::vector<int>& in_shape_hwc,
-               const std::vector<int>& indices, int axis_chw,
+int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
+               const std::vector<int> &in_shape_hwc,
+               const std::vector<int> &indices, int axis_chw,
                int align_channels) {
   if (in_shape_hwc.size() == 4) {
     return gather_hwc_batch_rvv(output, input, in_shape_hwc, indices, axis_chw,
@@ -825,7 +805,7 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
     auto out_C = indices.size();
     auto out_num_channel_blocks = (out_C + align_channels - 1) / align_channels;
     auto C_padded_out = out_num_channel_blocks * align_channels;
-    output.resize(H * W * C_padded_out, 0.0f);  // 初始化为0
+    output.resize(H * W * C_padded_out, 0.0f); // 初始化为0
 
     // e32表示元素宽度32位，m4表示LMUL=4:4个向量寄存器组成一个逻辑寄存器，avl是希望的元素数。该函数返回实际设置的向量长度vl
     // auto expected_vl = H * W;
@@ -932,12 +912,12 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
   return 0;
 }
 
-}  // namespace rvv
+} // namespace rvv
 
 namespace mem {
-int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
-               const std::vector<std::size_t>& in_shape_hwc,
-               const std::vector<std::size_t>& indices, std::size_t axis_chw,
+int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
+               const std::vector<std::size_t> &in_shape_hwc,
+               const std::vector<std::size_t> &indices, std::size_t axis_chw,
                std::size_t align_channels) {
   if (in_shape_hwc.size() == 4) {
     return gather_hwc_batch_mem(output, input, in_shape_hwc, indices, axis_chw,
@@ -956,18 +936,18 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
   }
 
   // 从HWC形状提取维度
-  std::size_t H = in_shape_hwc[0];  // HWC的第一个维度是H
-  std::size_t W = in_shape_hwc[1];  // HWC的第二个维度是W
-  std::size_t C = in_shape_hwc[2];  // HWC的第三个维度是C
+  std::size_t H = in_shape_hwc[0]; // HWC的第一个维度是H
+  std::size_t W = in_shape_hwc[1]; // HWC的第二个维度是W
+  std::size_t C = in_shape_hwc[2]; // HWC的第三个维度是C
 
   // 将CHW格式的axis转换为HWC格式的axis
   std::size_t axis_hwc;
   if (axis_chw == 0) {
-    axis_hwc = 2;  // CHW的C维度对应HWC的最后一个维度
+    axis_hwc = 2; // CHW的C维度对应HWC的最后一个维度
   } else if (axis_chw == 1) {
-    axis_hwc = 0;  // CHW的H维度对应HWC的第一个维度
-  } else {         // axis_chw == 2
-    axis_hwc = 1;  // CHW的W维度对应HWC的第二个维度
+    axis_hwc = 0; // CHW的H维度对应HWC的第一个维度
+  } else {        // axis_chw == 2
+    axis_hwc = 1; // CHW的W维度对应HWC的第二个维度
   }
 
   // 计算通道块数和填充后的通道数
@@ -979,7 +959,7 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
     std::size_t out_num_channel_blocks =
         (out_C + align_channels - 1) / align_channels;
     std::size_t C_padded_out = out_num_channel_blocks * align_channels;
-    output.resize(H * W * C_padded_out, 0.0f);  // 初始化为0
+    output.resize(H * W * C_padded_out, 0.0f); // 初始化为0
 
     // 对每个索引处理
     for (std::size_t i = 0; i < indices.size(); ++i) {
@@ -1004,7 +984,7 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
           // 按截断存储格式计算偏移：
           // 输入偏移：先是所有位置的前align_channels个通道，然后是所有位置的下一个align_channels通道...
           std::size_t in_offset =
-              c_block * (H * W * align_channels) +  // 该块的第0个元素的偏移
+              c_block * (H * W * align_channels) + // 该块的第0个元素的偏移
               h * (W * align_channels) + w * align_channels + c_offset;
 
           // 输出偏移：同样的逻辑，但基于输出的通道块
@@ -1032,8 +1012,8 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
 
       for (std::size_t c_block = 0; c_block < num_channel_blocks; ++c_block) {
         std::size_t in_offset =
-            c_block * (H * W * align_channels) +  // 该块的第一个元素的偏移
-            h_idx * (W * align_channels);  // h=h_idx对应的第一个元素的偏移
+            c_block * (H * W * align_channels) + // 该块的第一个元素的偏移
+            h_idx * (W * align_channels); // h=h_idx对应的第一个元素的偏移
         std::size_t out_offset =
             c_block * (out_H * W * align_channels) + i * (W * align_channels);
         std::memcpy(output.data() + out_offset, input.data() + in_offset,
@@ -1059,9 +1039,9 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
         // 对每个通道块处理
         for (std::size_t c_block = 0; c_block < num_channel_blocks; ++c_block) {
           std::size_t in_offset =
-              c_block * (H * W * align_channels) +  // 该块的第一个元素的偏移
-              h * (W * align_channels) +            // 该h对应的第一个元素的偏移
-              w_idx * align_channels;  // w=w_idx对应的第一个元素的偏移
+              c_block * (H * W * align_channels) + // 该块的第一个元素的偏移
+              h * (W * align_channels) +           // 该h对应的第一个元素的偏移
+              w_idx * align_channels; // w=w_idx对应的第一个元素的偏移
           std::size_t out_offset = c_block * (H * out_W * align_channels) +
                                    h * (out_W * align_channels) +
                                    i * align_channels;
@@ -1074,4 +1054,4 @@ int gather_hwc(std::vector<float>& output, const std::vector<float>& input,
 
   return 0;
 }
-}  // namespace mem
+} // namespace mem
