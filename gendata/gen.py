@@ -14,6 +14,12 @@ def three_d():
                     # Calculate the number (can be customized based on what numbers you want)
                     num = random.randint(0, 127)
                     f.write(f"{num}\n")
+                    
+    with open('../indices_72_3d.txt', 'w') as f:
+        for i in range(72):
+                    # Calculate the number (can be customized based on what numbers you want)
+                    num = random.randint(0, 127)
+                    f.write(f"{num}\n")
 
 def four_d():
     with open("../128_128_128_5.txt", "w") as f:

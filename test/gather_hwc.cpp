@@ -3,15 +3,16 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <riscv_vector.h>
 #include <vector>
 
 namespace {
 
-int gather_hwc_batch_rvv(std::vector<float> &output,
-                         const std::vector<float> &input,
-                         const std::vector<int> &in_shape_nhwc,
-                         const std::vector<int> &indices, int axis_nchw,
-                         int align_channels) {
+int gather_hwc_4d_rvv(std::vector<float> &output,
+                      const std::vector<float> &input,
+                      const std::vector<int> &in_shape_nhwc,
+                      const std::vector<int> &indices, int axis_nchw,
+                      int align_channels) {
   // 检查NCHW格式的axis是否有效
   if (axis_nchw > 3) {
     std::cerr << "无效的axis_nchw：" << axis_nchw << std::endl;
@@ -24,23 +25,11 @@ int gather_hwc_batch_rvv(std::vector<float> &output,
   auto W = in_shape_nhwc[2];
   auto C = in_shape_nhwc[3];
 
-  // 将NCHW格式的axis转换为NHWC格式的axis
-  std::size_t axis_nhwc;
-  if (axis_nchw == 0) {
-    axis_nhwc = 0;
-  } else if (axis_nchw == 1) {
-    axis_nhwc = 3;
-  } else if (axis_nchw == 2) {
-    axis_nhwc = 1;
-  } else { // axis_nchw == 3
-    axis_nhwc = 2;
-  }
-
   // 计算通道块数
   auto num_channel_blocks = (C + align_channels - 1) / align_channels;
 
   if (axis_nchw == 0) {
-    // 在N维度上gather (axis_nhwc=0)
+    // 在N维度上gather
     auto out_N = indices.size();
     output.resize(out_N * H * W * C, 0.0f);
     // 对每个索引处理
@@ -73,7 +62,7 @@ int gather_hwc_batch_rvv(std::vector<float> &output,
       }
     }
   } else if (axis_nchw == 1) {
-    // 在C维度上gather (axis_nhwc=3)
+    // 在C维度上gather
     auto out_C = indices.size();
     auto out_num_channel_blocks = (out_C + align_channels - 1) / align_channels;
     auto C_padded_out = out_num_channel_blocks * align_channels;
@@ -113,7 +102,7 @@ int gather_hwc_batch_rvv(std::vector<float> &output,
       }
     }
   } else if (axis_nchw == 2) {
-    // 在H维度上gather (axis_nhwc=1)
+    // 在H维度上gather
     auto out_H = indices.size();
     output.resize(N * out_H * W * C, 0.0f);
 
@@ -146,7 +135,7 @@ int gather_hwc_batch_rvv(std::vector<float> &output,
       }
     }
   } else if (axis_nchw == 3) {
-    // 在W维度上gather (axis_nhwc=2)
+    // 在W维度上gather
     auto out_W = indices.size();
     output.resize(N * H * out_W * C, 0.0f);
 
@@ -188,12 +177,12 @@ int gather_hwc_batch_rvv(std::vector<float> &output,
 }
 
 // NDHWC <-> NCDHW : RVV gather 5-D
-int gather_hwc_batch5d_rvv(
-    std::vector<float> &output, const std::vector<float> &input,
-    const std::vector<int> &in_shape_ndhwc, // {N,D,H,W,C}
-    const std::vector<int> &indices,
-    int axis_ncdhw, // 以 NCDHW 编号
-    int align_channels) {
+int gather_hwc_5d_rvv(std::vector<float> &output,
+                      const std::vector<float> &input,
+                      const std::vector<int> &in_shape_ndhwc, // {N,D,H,W,C}
+                      const std::vector<int> &indices,
+                      int axis_ncdhw, // 以 NCDHW 编号
+                      int align_channels) {
   if (axis_ncdhw > 4) {
     std::cerr << "无效 axis_ncdhw\n";
     return -1;
@@ -389,11 +378,11 @@ int gather_hwc_batch5d_rvv(
   return 0;
 }
 
-int gather_hwc_batch_mem(std::vector<float> &output,
-                         const std::vector<float> &input,
-                         const std::vector<int> &in_shape_nhwc,
-                         const std::vector<int> &indices, int axis_nchw,
-                         int align_channels) {
+int gather_hwc_4d_mem(std::vector<float> &output,
+                      const std::vector<float> &input,
+                      const std::vector<int> &in_shape_nhwc,
+                      const std::vector<int> &indices, int axis_nchw,
+                      int align_channels) {
   // 检查NCHW格式的axis是否有效
   if (axis_nchw > 3) {
     std::cerr << "无效的axis_nchw：" << axis_nchw << std::endl;
@@ -406,23 +395,11 @@ int gather_hwc_batch_mem(std::vector<float> &output,
   std::size_t W = in_shape_nhwc[2];
   std::size_t C = in_shape_nhwc[3];
 
-  // 将NCHW格式的axis转换为NHWC格式的axis
-  std::size_t axis_nhwc;
-  if (axis_nchw == 0) {
-    axis_nhwc = 0;
-  } else if (axis_nchw == 1) {
-    axis_nhwc = 3;
-  } else if (axis_nchw == 2) {
-    axis_nhwc = 1;
-  } else { // axis_nchw == 3
-    axis_nhwc = 2;
-  }
-
   // 计算通道块数和填充后的通道数
   std::size_t num_channel_blocks = (C + align_channels - 1) / align_channels;
 
   if (axis_nchw == 0) {
-    // 在N维度上gather (axis_nhwc=0)
+    // 在N维度上gather
     std::size_t out_N = indices.size();
     output.resize(out_N * H * W * C, 0.0f);
     // 对每个索引处理
@@ -445,7 +422,7 @@ int gather_hwc_batch_mem(std::vector<float> &output,
       }
     }
   } else if (axis_nchw == 1) {
-    // 在C维度上gather (axis_nhwc=3)
+    // 在C维度上gather
     std::size_t out_C = indices.size();
     std::size_t out_num_channel_blocks =
         (out_C + align_channels - 1) / align_channels;
@@ -490,7 +467,7 @@ int gather_hwc_batch_mem(std::vector<float> &output,
       }
     }
   } else if (axis_nchw == 2) {
-    // 在H维度上gather (axis_nhwc=1)
+    // 在H维度上gather
     std::size_t out_H = indices.size();
     output.resize(N * out_H * W * C, 0.0f);
 
@@ -514,7 +491,7 @@ int gather_hwc_batch_mem(std::vector<float> &output,
       }
     }
   } else if (axis_nchw == 3) {
-    // 在W维度上gather (axis_nhwc=2)
+    // 在W维度上gather
     std::size_t out_W = indices.size();
     output.resize(N * H * out_W * C, 0.0f);
 
@@ -547,11 +524,11 @@ int gather_hwc_batch_mem(std::vector<float> &output,
   return 0;
 }
 
-int gather_hwc_batch5d_mem(std::vector<float> &output,
-                           const std::vector<float> &input,
-                           const std::vector<int> &in_shape_ndhwc,
-                           const std::vector<int> &indices, int axis_ncdhw,
-                           int align_channels) {
+int gather_hwc_5d_mem(std::vector<float> &output,
+                      const std::vector<float> &input,
+                      const std::vector<int> &in_shape_ndhwc,
+                      const std::vector<int> &indices, int axis_ncdhw,
+                      int align_channels) {
   if (axis_ncdhw > 4) { // 轴合法性
     std::cerr << "无效 axis_ncdhw: " << axis_ncdhw << '\n';
     return -1;
@@ -566,10 +543,6 @@ int gather_hwc_batch5d_mem(std::vector<float> &output,
 
   /* --------------- 通道块数 --------------- */
   const std::size_t num_c_blocks = (C + align_channels - 1) / align_channels;
-
-  std::cout << "axis_ncdhw = " << axis_ncdhw << std::endl;
-  std::cout << "H = " << H << std::endl;
-  std::cout << "W = " << W << std::endl;
 
   /* ================ 逐轴处理 ================ */
 
@@ -599,7 +572,6 @@ int gather_hwc_batch5d_mem(std::vector<float> &output,
 
   /* -------- axis = C (channel) -------- */
   else if (axis_ncdhw == 1) {
-    std::cout << "axis_ncdhw == 1" << std::endl;
     const std::size_t outC = indices.size();
     const std::size_t out_c_blocks =
         (outC + align_channels - 1) / align_channels;
@@ -607,7 +579,6 @@ int gather_hwc_batch5d_mem(std::vector<float> &output,
     output.resize(N * D * H * W * C_pad_out, 0.0f);
 
     for (std::size_t i = 0; i < indices.size(); ++i) {
-      std::cout << "i = " << i << std::endl;
       std::size_t c_idx = indices[i] >= 0 ? indices[i] : indices[i] + C;
       if (c_idx >= C) {
         std::cerr << "索引越界\n";
@@ -738,12 +709,12 @@ int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
                const std::vector<int> &indices, int axis_chw,
                int align_channels) {
   if (in_shape_hwc.size() == 4) {
-    return gather_hwc_batch_mem(output, input, in_shape_hwc, indices, axis_chw,
-                                align_channels);
+    return gather_hwc_4d_mem(output, input, in_shape_hwc, indices, axis_chw,
+                             align_channels);
   } else if (in_shape_hwc.size() == 5) {
     std::cout << "gather_hwc_batch5d_mem, axis_chw = " << axis_chw << std::endl;
-    return gather_hwc_batch5d_mem(output, input, in_shape_hwc, indices,
-                                  axis_chw, align_channels);
+    return gather_hwc_5d_mem(output, input, in_shape_hwc, indices, axis_chw,
+                             align_channels);
   } else if (in_shape_hwc.size() != 3) {
     std::cerr << "无效的输入形状：" << in_shape_hwc.size() << std::endl;
     return -1;
@@ -759,21 +730,11 @@ int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
   std::size_t W = in_shape_hwc[1]; // HWC的第二个维度是W
   std::size_t C = in_shape_hwc[2]; // HWC的第三个维度是C
 
-  // 将CHW格式的axis转换为HWC格式的axis
-  std::size_t axis_hwc;
-  if (axis_chw == 0) {
-    axis_hwc = 2; // CHW的C维度对应HWC的最后一个维度
-  } else if (axis_chw == 1) {
-    axis_hwc = 0; // CHW的H维度对应HWC的第一个维度
-  } else {        // axis_chw == 2
-    axis_hwc = 1; // CHW的W维度对应HWC的第二个维度
-  }
-
   // 计算通道块数和填充后的通道数
   std::size_t num_channel_blocks = (C + align_channels - 1) / align_channels;
 
   if (axis_chw == 0) {
-    // 在C维度上gather (axis_hwc=2)
+    // 在C维度上gather
     std::size_t out_C = indices.size();
     std::size_t out_num_channel_blocks =
         (out_C + align_channels - 1) / align_channels;
@@ -816,7 +777,7 @@ int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
       }
     }
   } else if (axis_chw == 1) {
-    // 在H维度上gather (axis_hwc=0)
+    // 在H维度上gather
     std::size_t out_H = indices.size();
     output.resize(out_H * W * C, 0.0f);
 
@@ -840,7 +801,7 @@ int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
       }
     }
   } else if (axis_chw == 2) {
-    // 在W维度上gather (axis_hwc=1)
+    // 在W维度上gather
     std::size_t out_W = indices.size();
     output.resize(H * out_W * C, 0.0f);
 
@@ -874,3 +835,144 @@ int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
   return 0;
 }
 } // namespace mem
+
+namespace rvv {
+int gather_hwc(std::vector<float> &output, const std::vector<float> &input,
+               const std::vector<int> &in_shape_hwc,
+               const std::vector<int> &indices, int axis_chw,
+               int align_channels) {
+  if (in_shape_hwc.size() == 4) {
+    return gather_hwc_4d_rvv(output, input, in_shape_hwc, indices, axis_chw,
+                             align_channels);
+  } else if (in_shape_hwc.size() == 5) {
+    return gather_hwc_5d_rvv(output, input, in_shape_hwc, indices, axis_chw,
+                             align_channels);
+  } else if (in_shape_hwc.size() != 3) {
+    std::cerr << "无效的输入形状：" << in_shape_hwc.size() << std::endl;
+    return -1;
+  }
+  // 检查CHW格式的axis是否有效
+  if (axis_chw > 2) {
+    std::cerr << "无效的axis_chw：" << axis_chw << std::endl;
+    return -1;
+  }
+
+  // 从HWC形状提取维度
+  auto H = in_shape_hwc[0];
+  auto W = in_shape_hwc[1];
+  auto C = in_shape_hwc[2];
+
+  // 计算通道块数
+  auto num_channel_blocks = (C + align_channels - 1) / align_channels;
+  if (axis_chw == 0) {
+    // 在C维度上gather
+    auto out_C = indices.size();
+    auto out_num_channel_blocks = (out_C + align_channels - 1) / align_channels;
+    auto C_padded_out = out_num_channel_blocks * align_channels;
+    output.resize(H * W * C_padded_out, 0.0f); // 初始化为0
+
+    // e32表示元素宽度32位，m4表示LMUL=4:4个向量寄存器组成一个逻辑寄存器，avl是希望的元素数。该函数返回实际设置的向量长度vl
+    // auto expected_vl = H * W;
+    // std::size_t actual_vl = vsetvl_e32m4(expected_vl);
+
+    // 对每个索引处理
+    for (std::size_t i = 0; i < indices.size(); ++i) {
+      // 处理负索引
+      auto c_idx = indices[i] >= 0 ? indices[i] : indices[i] + C;
+      if (c_idx >= C) {
+        std::cerr << "索引越界：" << indices[i] << std::endl;
+        return -1;
+      }
+
+      // 计算原始通道所在的块索引和块内（通道）偏移
+      auto c_block = c_idx / align_channels;
+      auto c_offset = c_idx % align_channels;
+
+      // 计算输出通道的块索引和块内（通道）偏移
+      auto out_c_block = i / align_channels;
+      auto out_c_offset = i % align_channels;
+
+      auto input_start = c_block * (H * W * align_channels) + c_offset;
+      auto output_start = out_c_block * (H * W * align_channels) + out_c_offset;
+
+      // in bytes
+      auto stride = align_channels * sizeof(float);
+
+      auto n = H * W;
+      while (n > 0) {
+        auto vl = vsetvl_e32m8(n);
+        auto v_in = vlse32_v_f32m8(input.data() + input_start, stride, vl);
+        vsse32_v_f32m8(output.data() + output_start, stride, v_in, vl);
+        // 更新偏移
+        input_start += vl * align_channels;
+        output_start += vl * align_channels;
+        n -= vl;
+      }
+    }
+  } else if (axis_chw == 1) {
+    auto out_H = indices.size();
+    output.resize(out_H * W * C, 0.0f);
+
+    for (int i = 0; i < indices.size(); i++) {
+      std::size_t h_idx = indices[i] >= 0 ? indices[i] : indices[i] + H;
+      if (h_idx >= H) {
+        std::cerr << "索引越界：" << indices[i] << std::endl;
+        return -1;
+      }
+      // h需要对每个块进行处理, 每个块提取连续的W*align_channels个数
+      for (int c_block = 0; c_block < num_channel_blocks; ++c_block) {
+        auto input_start =
+            c_block * (H * W * align_channels) + h_idx * (W * align_channels);
+        auto output_start =
+            c_block * (H * W * align_channels) + i * (W * align_channels);
+        // 连续存储的W*align_channels个元素
+        auto n = W * align_channels;
+        while (n > 0) {
+          std::size_t vl = vsetvl_e32m8(n);
+          auto v_in = vle32_v_f32m8(input.data() + input_start, vl);
+          // 输出到output
+          vse32_v_f32m8(output.data() + output_start, v_in, vl);
+          // 更新偏移
+          input_start += vl;
+          output_start += vl;
+          n -= vl;
+        }
+      }
+    }
+  } else if (axis_chw == 2) {
+    // 在W维度上gather
+    auto out_W = indices.size();
+    output.resize(H * out_W * C, 0.0f);
+
+    // w需要对每个块中每个h处理
+    for (auto h = 0; h < H; ++h) {
+      for (auto i = 0; i < indices.size(); ++i) {
+        std::size_t w_idx = indices[i] >= 0 ? indices[i] : indices[i] + W;
+        if (w_idx >= W) {
+          std::cerr << "索引越界：" << indices[i] << std::endl;
+          return -1;
+        }
+        for (std::size_t c_block = 0; c_block < num_channel_blocks; ++c_block) {
+          auto input_start = c_block * (H * W * align_channels) +
+                             h * (W * align_channels) + w_idx * align_channels;
+          auto output_start = c_block * (H * out_W * align_channels) +
+                              h * (out_W * align_channels) + i * align_channels;
+          auto n = align_channels;
+          while (n > 0) {
+            std::size_t vl = vsetvl_e32m8(n);
+            auto v_in = vle32_v_f32m8(input.data() + input_start, vl);
+            // 输出到output
+            vse32_v_f32m8(output.data() + output_start, v_in, vl);
+            // 更新偏移
+            input_start += vl;
+            output_start += vl;
+            n -= vl;
+          }
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+} // namespace rvv

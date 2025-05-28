@@ -3,8 +3,8 @@
 
 float TestGatherHWC(bool is_rvv, std::vector<int> in_shape,
                     std::vector<int> indices_shape, const char *input_path,
-                    const char *indices_path, const char *output_path,
-                    int axis) {
+                    const char *indices_path, const char *output_path, int axis,
+                    int align_channels) {
   int input_size = 1;
   for (auto i : in_shape) {
     input_size *= i;
@@ -26,9 +26,11 @@ float TestGatherHWC(bool is_rvv, std::vector<int> in_shape,
 
   gettimeofday(&start, NULL);
   if (is_rvv) {
-    rvv::gather_hwc(output, input_data, in_shape, indices, axis, 16);
+    rvv::gather_hwc(output, input_data, in_shape, indices, axis,
+                    align_channels);
   } else {
-    mem::gather_hwc(output, input_data, in_shape, indices, axis, 16);
+    mem::gather_hwc(output, input_data, in_shape, indices, axis,
+                    align_channels);
   }
 
   gettimeofday(&end, NULL);
@@ -43,18 +45,18 @@ float TestGatherHWC(bool is_rvv, std::vector<int> in_shape,
   if (in_shape.size() == 3) {
     printf("input{%2d, %2d, %2d},axis{%d},channel_%2d,calculate %7.3f "
            "ms,all_time %.3f ms\n",
-           in_shape[0], in_shape[1], in_shape[2], axis, 16, calculate_time_use,
-           all_time);
+           in_shape[0], in_shape[1], in_shape[2], axis, align_channels,
+           calculate_time_use, all_time);
   } else if (in_shape.size() == 4) {
     printf("input{%2d, %2d, %2d, %2d},axis{%d},channel_%2d,calculate %7.3f "
            "ms,all_time %.3f ms\n",
-           in_shape[0], in_shape[1], in_shape[2], in_shape[3], axis, 16,
-           calculate_time_use, all_time);
+           in_shape[0], in_shape[1], in_shape[2], in_shape[3], axis,
+           align_channels, calculate_time_use, all_time);
   } else if (in_shape.size() == 5) {
     printf("input{%2d, %2d, %2d, %2d, %2d},axis{%d},channel_%2d,calculate "
            "%7.3f ms,all_time %.3f ms\n",
            in_shape[0], in_shape[1], in_shape[2], in_shape[3], in_shape[4],
-           axis, 16, calculate_time_use, all_time);
+           axis, align_channels, calculate_time_use, all_time);
   }
   return all_time;
 };

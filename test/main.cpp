@@ -2,6 +2,7 @@
 
 #include "gather_hwc.h"
 #include "op.h"
+#include <filesystem>
 
 // 辅助函数：比较两个向量是否相等
 bool compare_vectors(const std::vector<float> &a, const std::vector<float> &b,
@@ -70,22 +71,21 @@ void TestGather5d(bool is_rvv, std::vector<int> in_shape,
   outputFile_line(output_path, output);
 };
 
-int main() {
-
-  /* chw test */
-  std::cout << "chw test" << std::endl;
+void chw_3d() {
+  std::cout << "chw 3d test, align_channels=64" << std::endl;
   auto chw_data_ptr = readFile("128_128_128.txt", 128 * 128 * 128);
   auto chw_data =
       std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 128 * 128};
-  auto hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 16);
+  auto hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 64);
   outputFile_line("128_128_128_hwc.txt", hwc_data);
 
+  // data[128, 128, 128],indices[128], axis=0
   {
     std::vector<float> time(4, 0);
     for (int i = 0; i < 3; i++) {
       auto times =
           TestGatherCHW(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 0);
+                        "indices_128_3d.txt", "output.txt", 0, 64);
       time[0] += times[0];
       time[1] += times[1];
       time[2] += times[2];
@@ -95,17 +95,18 @@ int main() {
     time[1] /= 3;
     time[2] /= 3;
     time[3] /= 3;
-    std::cout << "128_128_128_hwc.txt,axis0,CLtoCHW " << time[0]
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis0,CLtoCHW " << time[0]
               << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
               << " ms,all_time " << time[3] << " ms" << std::endl;
   }
-
+  // data[128, 128, 128],indices[128], axis=1
   {
     std::vector<float> time(4, 0);
     for (int i = 0; i < 3; i++) {
       auto times =
           TestGatherCHW(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 1);
+                        "indices_128_3d.txt", "output.txt", 1, 64);
       time[0] += times[0];
       time[1] += times[1];
       time[2] += times[2];
@@ -115,16 +116,18 @@ int main() {
     time[1] /= 3;
     time[2] /= 3;
     time[3] /= 3;
-    std::cout << "128_128_128_hwc.txt,axis1,CLtoCHW " << time[0]
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis1,CLtoCHW " << time[0]
               << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
               << " ms,all_time " << time[3] << " ms" << std::endl;
   }
+  // data[128, 128, 128],indices[4, 18], axis=2
   {
     std::vector<float> time(4, 0);
     for (int i = 0; i < 3; i++) {
       auto times =
-          TestGatherCHW(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 2);
+          TestGatherCHW(false, {128, 128, 128}, {4, 18}, "128_128_128_hwc.txt",
+                        "indices_72_3d.txt", "output.txt", 2, 64);
       time[0] += times[0];
       time[1] += times[1];
       time[2] += times[2];
@@ -134,149 +137,473 @@ int main() {
     time[1] /= 3;
     time[2] /= 3;
     time[3] /= 3;
-    std::cout << "128_128_128_hwc.txt,axis2,CLtoCHW " << time[0]
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{4,18},axis2,CLtoCHW " << time[0]
               << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
               << " ms,all_time " << time[3] << " ms" << std::endl;
   }
 
-  chw_data_ptr = readFile("128_128_128_5.txt", 128 * 5 * 128 * 128);
-  chw_data =
-      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 128 * 128};
-  hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 16);
+  std::filesystem::remove("128_128_128_hwc.txt");
 
-  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
-  {
-    std::vector<float> time(4, 0);
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherCHW(false, {128, 128, 128, 5}, {128},
-                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
-                                 "output.txt", 0);
-      time[0] += times[0];
-      time[1] += times[1];
-      time[2] += times[2];
-      time[3] += times[3];
-    }
-    time[0] /= 3;
-    time[1] /= 3;
-    time[2] /= 3;
-    time[3] /= 3;
-    std::cout << "128_128_128_5_hwc.txt,axis0,CLtoCHW " << time[0]
-              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
-              << " ms,all_time " << time[3] << " ms" << std::endl;
-  }
-  {
-    std::vector<float> time(4, 0);
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherCHW(false, {128, 128, 128, 5}, {128},
-                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
-                                 "output.txt", 2);
-      time[0] += times[0];
-      time[1] += times[1];
-      time[2] += times[2];
-      time[3] += times[3];
-    }
-    time[0] /= 3;
-    time[1] /= 3;
-    time[2] /= 3;
-    time[3] /= 3;
-    std::cout << "128_128_128_5_hwc.txt,axis2,CLtoCHW " << time[0]
-              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
-              << " ms,all_time " << time[3] << " ms" << std::endl;
-  }
-  chw_data_ptr = readFile("5_128_3_128_128.txt", 128 * 5 * 3 * 128 * 128);
-  chw_data =
-      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 3 * 128 * 128};
-  hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 16);
-  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
-
-  {
-    std::vector<float> time(4, 0);
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {128},
-                                 "5_128_3_128_128_hwc.txt",
-                                 "indices_128_5d.txt", "output.txt", 3);
-      time[0] += times[0];
-      time[1] += times[1];
-      time[2] += times[2];
-      time[3] += times[3];
-    }
-    time[0] /= 3;
-    time[1] /= 3;
-    time[2] /= 3;
-    time[3] /= 3;
-    std::cout << "5_128_3_128_128_hwc.txt,axis3,CLtoCHW " << time[0]
-              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
-              << " ms,all_time " << time[3] << " ms" << std::endl;
-  }
-  {
-    std::vector<float> time(4, 0);
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {128},
-                                 "5_128_3_128_128_hwc.txt",
-                                 "indices_128_5d.txt", "output.txt", 4);
-      time[0] += times[0];
-      time[1] += times[1];
-      time[2] += times[2];
-      time[3] += times[3];
-    }
-    time[0] /= 3;
-    time[1] /= 3;
-    time[2] /= 3;
-    time[3] /= 3;
-    std::cout << "5_128_3_128_128_hwc.txt,axis4,CLtoCHW " << time[0]
-              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
-              << " ms,all_time " << time[3] << " ms" << std::endl;
-  }
-
-  /* hwc test */
-  std::cout << "\n\nhwc_memcpy test" << std::endl;
-  chw_data_ptr = readFile("128_128_128.txt", 128 * 128 * 128);
-  chw_data = std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 128 * 128};
+  /* align_channels=16 */
+  std::cout << "chw test, align_channels=16" << std::endl;
   hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 16);
   outputFile_line("128_128_128_hwc.txt", hwc_data);
 
+  // data[128, 128, 128],indices[128], axis=0
   {
-    float time = 0;
+    std::vector<float> time(4, 0);
     for (int i = 0; i < 3; i++) {
       auto times =
-          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 0);
-      time += times;
+          TestGatherCHW(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 0, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
     }
-    time /= 3;
-    std::cout << "128_128_128_hwc.txt,axis0,all_time " << time << " ms"
-              << std::endl;
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis0,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
   }
+  // data[128, 128, 128],indices[4,32], axis=1
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherCHW(false, {128, 128, 128}, {4, 32}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 1, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{4,32},axis1,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherCHW(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 2, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis2,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  std::filesystem::remove("128_128_128_hwc.txt");
+}
 
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times =
-          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 1);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_hwc.txt,axis1,all_time " << time << " ms"
-              << std::endl;
-  }
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times =
-          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 2);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_hwc.txt,axis2,all_time " << time << " ms"
-              << std::endl;
-  }
-
-  chw_data_ptr = readFile("128_128_128_5.txt", 128 * 5 * 128 * 128);
-  chw_data =
+void chw_4d() {
+  std::cout << "chw 4d test, align_channels=64" << std::endl;
+  auto chw_data_ptr = readFile("128_128_128_5.txt", 128 * 5 * 128 * 128);
+  auto chw_data =
       std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 128 * 128};
+  auto hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 64);
+
+  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
+  // indices [128]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 0, 64);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis0,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 2, 64);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis2,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+
+  std::filesystem::remove("128_128_128_5_hwc.txt");
   hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 16);
+  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
+
+  /* align_channels=16 */
+  std::cout << "chw test, align_channels=16" << std::endl;
+
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 0, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis0,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {128, 128, 128, 5}, {4, 32},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 2, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{4,32},axis2,CLtoCHW " << time[0]
+              << " ms,CHWtoCL " << time[1] << " ms,calculate " << time[2]
+              << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  std::filesystem::remove("128_128_128_5_hwc.txt");
+}
+
+void chw_5d() {
+  std::cout << "chw 5d test, align_channels=64" << std::endl;
+  auto chw_data_ptr = readFile("5_128_3_128_128.txt", 128 * 5 * 3 * 128 * 128);
+  auto chw_data =
+      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 3 * 128 * 128};
+  auto hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 64);
+  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
+  // indices [128]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 64);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis3,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  // indices [4,32]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {4, 32},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 64);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{4,32},axis3,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  // indices [128]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 64);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis4,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  // indices [4,32]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {4, 32},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 64);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{4,32},axis4,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+
+  std::filesystem::remove("5_128_3_128_128_hwc.txt");
+  hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 16);
+  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
+  std::cout << "chw 5d test, align_channels=16" << std::endl;
+
+  // indices [128]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis3,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  // indices [4,32]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {4, 32},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{4,32},axis3,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  // indices [128]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis4,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  // indices [4,32]
+  {
+    std::vector<float> time(4, 0);
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherCHW(false, {5, 128, 3, 128, 128}, {4, 32},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 16);
+      time[0] += times[0];
+      time[1] += times[1];
+      time[2] += times[2];
+      time[3] += times[3];
+    }
+    time[0] /= 3;
+    time[1] /= 3;
+    time[2] /= 3;
+    time[3] /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{4,32},axis4,CLtoCHW "
+              << time[0] << " ms,CHWtoCL " << time[1] << " ms,calculate "
+              << time[2] << " ms,all_time " << time[3] << " ms" << std::endl;
+  }
+  std::filesystem::remove("5_128_3_128_128_hwc.txt");
+}
+
+void hwc_3d_memcpy() {
+  std::cout << "\n\nhwc_memcpy test" << std::endl;
+  std::cout << "hwc 3d test, align_channels=64" << std::endl;
+
+  auto chw_data_ptr = readFile("128_128_128.txt", 128 * 128 * 128);
+  auto chw_data =
+      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 128 * 128};
+  auto hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 64);
+  outputFile_line("128_128_128_hwc.txt", hwc_data);
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 0, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 1, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis1,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 2, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  std::filesystem::remove("128_128_128_hwc.txt");
+  hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 16);
+  outputFile_line("128_128_128_hwc.txt", hwc_data);
+  std::cout << "hwc 3d test, align_channels=16" << std::endl;
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 0, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(false, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 1, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis1,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(false, {128, 128, 128}, {4, 32}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 2, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{4,32},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+  std::filesystem::remove("128_128_128_hwc.txt");
+}
+
+void hwc_4d_memcpy() {
+  std::cout << "test hwc 4d memcpy, align_channels=64" << std::endl;
+  auto chw_data_ptr = readFile("128_128_128_5.txt", 128 * 5 * 128 * 128);
+  auto chw_data =
+      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 128 * 128};
+  auto hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 64);
 
   outputFile_line("128_128_128_5_hwc.txt", hwc_data);
   {
@@ -284,29 +611,70 @@ int main() {
     for (int i = 0; i < 3; i++) {
       auto times = TestGatherHWC(false, {128, 128, 128, 5}, {128},
                                  "128_128_128_5_hwc.txt", "indices_128_4d.txt",
-                                 "output.txt", 0);
+                                 "output.txt", 0, 64);
       time += times;
     }
     time /= 3;
-    std::cout << "128_128_128_5_hwc.txt,axis0,all_time " << time << " ms"
-              << std::endl;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
   }
   {
     float time = 0;
     for (int i = 0; i < 3; i++) {
       auto times = TestGatherHWC(false, {128, 128, 128, 5}, {128},
                                  "128_128_128_5_hwc.txt", "indices_128_4d.txt",
-                                 "output.txt", 2);
+                                 "output.txt", 2, 64);
       time += times;
     }
     time /= 3;
-    std::cout << "128_128_128_5_hwc.txt,axis2,all_time " << time << " ms"
-              << std::endl;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis2,all_time " << time
+              << " ms" << std::endl;
   }
-  chw_data_ptr = readFile("5_128_3_128_128.txt", 128 * 5 * 3 * 128 * 128);
-  chw_data =
+
+  std::filesystem::remove("128_128_128_5_hwc.txt");
+  hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 16);
+
+  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
+
+  std::cout << "test hwc 4d memcpy, align_channels=16" << std::endl;
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(false, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 0, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(false, {128, 128, 128, 5}, {4, 32},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 2, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{4,32},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+  std::filesystem::remove("128_128_128_5_hwc.txt");
+}
+
+void hwc_5d_memcpy() {
+  std::cout << "test hwc 5d memcpy, align_channels=64" << std::endl;
+  auto chw_data_ptr = readFile("5_128_3_128_128.txt", 128 * 5 * 3 * 128 * 128);
+  auto chw_data =
       std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 3 * 128 * 128};
-  hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 16);
+  auto hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 64);
   outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
 
   {
@@ -314,131 +682,317 @@ int main() {
     for (int i = 0; i < 3; i++) {
       auto times = TestGatherHWC(false, {5, 128, 3, 128, 128}, {128},
                                  "5_128_3_128_128_hwc.txt",
-                                 "indices_128_5d.txt", "output.txt", 3);
+                                 "indices_128_5d.txt", "output.txt", 3, 64);
       time += times;
     }
     time /= 3;
-    std::cout << "5_128_3_128_128_hwc.txt,axis3,all_time " << time << " ms"
-              << std::endl;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis3,all_time " << time
+              << " ms" << std::endl;
   }
   {
     float time = 0;
     for (int i = 0; i < 3; i++) {
       auto times = TestGatherHWC(false, {5, 128, 3, 128, 128}, {128},
                                  "5_128_3_128_128_hwc.txt",
-                                 "indices_128_5d.txt", "output.txt", 4);
+                                 "indices_128_5d.txt", "output.txt", 4, 64);
       time += times;
     }
     time /= 3;
-    std::cout << "5_128_3_128_128_hwc.txt,axis4,all_time " << time << " ms"
-              << std::endl;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis4,all_time " << time
+              << " ms" << std::endl;
   }
+  std::filesystem::remove("5_128_3_128_128_hwc.txt");
+  hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 16);
+  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
+
+  std::cout << "test hwc 5d memcpy, align_channels=16" << std::endl;
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(false, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis3,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(false, {5, 128, 3, 128, 128}, {4, 32},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{4,32},axis4,all_time " << time
+              << " ms" << std::endl;
+  }
+}
+
+void hwc_3d_rvv() {
+  auto chw_data_ptr = readFile("128_128_128.txt", 128 * 128 * 128);
+  auto chw_data =
+      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 128 * 128};
+  auto hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 64);
+  outputFile_line("128_128_128_hwc.txt", hwc_data);
+  std::cout << "hwc 3d rvv test, align_channels=64" << std::endl;
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 0, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 1, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis1,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 2, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  std::filesystem::remove("128_128_128_hwc.txt");
+  hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 16);
+  outputFile_line("128_128_128_hwc.txt", hwc_data);
+
+  std::cout << "hwc 3d rvv test, align_channels=16" << std::endl;
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 0, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 1, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{128},axis1,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times =
+          TestGatherHWC(true, {128, 128, 128}, {4, 32}, "128_128_128_hwc.txt",
+                        "indices_128_3d.txt", "output.txt", 2, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_hwc.txt,indices{4, 32},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+  std::filesystem::remove("128_128_128_hwc.txt");
+}
+
+void hwc_4d_rvv() {
+  auto chw_data_ptr = readFile("128_128_128_5.txt", 128 * 5 * 128 * 128);
+  auto chw_data =
+      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 128 * 128};
+  auto hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 64);
+
+  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
+  std::cout << "hwc 4d rvv test, align_channels=64" << std::endl;
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 0, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 2, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+
+  std::filesystem::remove("128_128_128_5_hwc.txt");
+  std::cout << "hwc 4d rvv test, align_channels=16" << std::endl;
+  hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 16);
+
+  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {128, 128, 128, 5}, {128},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 0, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{128},axis0,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {128, 128, 128, 5}, {4, 32},
+                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
+                                 "output.txt", 2, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "128_128_128_5_hwc.txt,indices{4,32},axis2,all_time " << time
+              << " ms" << std::endl;
+  }
+}
+
+void hwc_5d_rvv() {
+  auto chw_data_ptr = readFile("5_128_3_128_128.txt", 128 * 5 * 3 * 128 * 128);
+  auto chw_data =
+      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 3 * 128 * 128};
+  auto hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 64);
+  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis3,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 64);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis4,all_time " << time
+              << " ms" << std::endl;
+  }
+  std::filesystem::remove("5_128_3_128_128_hwc.txt");
+  hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 16);
+  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
+  std::cout << "hwc 5d rvv test, align_channels=16" << std::endl;
+
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {5, 128, 3, 128, 128}, {128},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 3, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{128},axis3,all_time " << time
+              << " ms" << std::endl;
+  }
+  {
+    float time = 0;
+    for (int i = 0; i < 3; i++) {
+      auto times = TestGatherHWC(true, {5, 128, 3, 128, 128}, {4, 32},
+                                 "5_128_3_128_128_hwc.txt",
+                                 "indices_128_5d.txt", "output.txt", 4, 16);
+      time += times;
+    }
+    time /= 3;
+    std::filesystem::remove("output.txt");
+    std::cout << "5_128_3_128_128_hwc.txt,indices{4,32},axis4,all_time " << time
+              << " ms" << std::endl;
+  }
+  std::filesystem::remove("5_128_3_128_128_hwc.txt");
+}
+
+int main() {
+
+  /* chw 3d */
+  chw_3d();
+
+  /* chw 4d */
+  chw_4d();
+
+  // 5d
+  chw_5d();
+
+  hwc_3d_memcpy();
+
+  hwc_4d_memcpy();
+
+  hwc_5d_memcpy();
 
   /* hwc_rvv test */
   std::cout << "\n\nhwc_rvv test" << std::endl;
-  chw_data_ptr = readFile("128_128_128.txt", 128 * 128 * 128);
-  chw_data = std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 128 * 128};
-  hwc_data = convert_chw_to_hwc_3d(chw_data, 128, 128, 128, 16);
-  outputFile_line("128_128_128_hwc.txt", hwc_data);
 
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times =
-          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 0);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_hwc.txt,axis0,all_time " << time << " ms"
-              << std::endl;
-  }
+  hwc_3d_rvv();
 
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times =
-          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 1);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_hwc.txt,axis1,all_time " << time << " ms"
-              << std::endl;
-  }
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times =
-          TestGatherHWC(true, {128, 128, 128}, {128}, "128_128_128_hwc.txt",
-                        "indices_128_3d.txt", "output.txt", 2);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_hwc.txt,axis2,all_time " << time << " ms"
-              << std::endl;
-  }
+  hwc_4d_rvv();
 
-  chw_data_ptr = readFile("128_128_128_5.txt", 128 * 5 * 128 * 128);
-  chw_data =
-      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 128 * 128};
-  hwc_data = convert_nchw_to_nhwc_4d(chw_data, 128, 128, 128, 5, 16);
-
-  outputFile_line("128_128_128_5_hwc.txt", hwc_data);
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherHWC(true, {128, 128, 128, 5}, {128},
-                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
-                                 "output.txt", 0);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_5_hwc.txt,axis0,all_time " << time << " ms"
-              << std::endl;
-  }
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherHWC(true, {128, 128, 128, 5}, {128},
-                                 "128_128_128_5_hwc.txt", "indices_128_4d.txt",
-                                 "output.txt", 2);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "128_128_128_5_hwc.txt,axis2,all_time " << time << " ms"
-              << std::endl;
-  }
-  chw_data_ptr = readFile("5_128_3_128_128.txt", 128 * 5 * 3 * 128 * 128);
-  chw_data =
-      std::vector<float>{chw_data_ptr, chw_data_ptr + 128 * 5 * 3 * 128 * 128};
-  hwc_data = convert_ncdhw_to_ndhwc_5d(chw_data, 5, 128, 3, 128, 128, 16);
-  outputFile_line("5_128_3_128_128_hwc.txt", hwc_data);
-
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherHWC(true, {5, 128, 3, 128, 128}, {128},
-                                 "5_128_3_128_128_hwc.txt",
-                                 "indices_128_5d.txt", "output.txt", 3);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "5_128_3_128_128_hwc.txt,axis3,all_time " << time << " ms"
-              << std::endl;
-  }
-  {
-    float time = 0;
-    for (int i = 0; i < 3; i++) {
-      auto times = TestGatherHWC(true, {5, 128, 3, 128, 128}, {128},
-                                 "5_128_3_128_128_hwc.txt",
-                                 "indices_128_5d.txt", "output.txt", 4);
-      time += times;
-    }
-    time /= 3;
-    std::cout << "5_128_3_128_128_hwc.txt,axis4,all_time " << time << " ms"
-              << std::endl;
-  }
+  hwc_5d_rvv();
 
   /*test 5d mem*/
   // {
